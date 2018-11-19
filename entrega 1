@@ -1,0 +1,173 @@
+import pygame as pg
+import time
+import random as ran 
+import threading
+import math
+
+#********************************************************************************************
+#                                     VARIABLES GLOBALES
+#********************************************************************************************
+
+SCREEN_SIZE_X = 500
+SCREEN_SIZE_Y = 700
+ANCHO_BARRA = 60
+RADIO_ESFERA = 15
+EN_JUEGO = False
+DEG2RAD = math.pi/180
+RAD2DEG = 180/math.pi
+coord_barra_x = 0
+coord_esfera = [0,0]
+lista_bloques = []
+
+colores = [
+    (0,0,0),
+    (150,150,150),
+    (50,120,255),
+    (50,255,255),
+    (170,50,255),
+    (50,255,130),
+    (255,255,50),
+    (255,100,50)
+]
+
+bloques=[
+    [()]
+]
+
+#********************************************************************************************
+#                                        FUNCIONES 
+#********************************************************************************************
+
+def barra(x = 0):
+    pg.draw.rect(screen,(0,0,0),[x,SCREEN_SIZE_Y-10,ANCHO_BARRA,10])
+
+def esfera(x,y):
+    pg.draw.circle(screen, (0,0,0), (int(x),int(y)), RADIO_ESFERA)
+
+def ladrillos():
+    global lista_bloques
+    for i in range(0,8):
+        pg.draw.rect(screen, colores[i], [50+(i*50), 200, 50, 20])
+        #lista_bloques += [(50+(i*50), 200)]
+ 
+
+def tarea_esfera():
+    global EN_JUEGO
+    global coord_esfera
+    global coord_barra_x
+    coord_esfera[0] = int(SCREEN_SIZE_X/2)
+    coord_esfera[1]= SCREEN_SIZE_Y-10-RADIO_ESFERA
+    angulo = (180+ran.randint(45,135))*DEG2RAD
+    pared = 0
+    print("Angulo: "+str(angulo*RAD2DEG))
+    while True:
+        if EN_JUEGO:
+            coord_esfera[0] += 15*math.cos(angulo)
+            coord_esfera[1] += 15*math.sin(angulo)
+
+            if(coord_esfera[1] > 200 and coord_esfera[1] <= 220+RADIO_ESFERA):
+                if (coord_esfera[0] > 200-RADIO_ESFERA and coord_esfera[0] < 300+RADIO_ESFERA):
+                    if (pared != 5):
+                        if(angulo < 270*DEG2RAD):
+                            angulo -= 90*DEG2RAD
+                        else:
+                            angulo -= 270*DEG2RAD
+                    print("Angulo bloques: "+str(angulo*RAD2DEG))     
+                    pared = 5
+            if (coord_esfera[0] <= RADIO_ESFERA):
+                if(pared != 1):
+                    if (angulo > 180*DEG2RAD):
+                        angulo += 90*DEG2RAD
+                    else:
+                        angulo -= 90*DEG2RAD
+                pared = 1
+                print("Angulo +90: "+str(angulo*RAD2DEG))
+
+            if (coord_esfera[0] >= SCREEN_SIZE_X-RADIO_ESFERA):
+                if(pared != 2):
+                    if (angulo > 270*DEG2RAD):
+                        angulo -= 90*DEG2RAD
+                    else:
+                        angulo += 90*DEG2RAD
+                pared = 2
+                print("Angulo -90: "+str(angulo*RAD2DEG))
+
+            if (coord_esfera[1] <= RADIO_ESFERA):
+                if (pared != 3):
+                    if(angulo < 270*DEG2RAD):
+                        angulo -= 90*DEG2RAD
+                    else:
+                        angulo -= 270*DEG2RAD
+
+                print("Angulo techo: "+str(angulo*RAD2DEG))     
+                pared = 3
+            if (coord_esfera[1] >= SCREEN_SIZE_Y-10-RADIO_ESFERA):
+                if(pared != 4):
+                    if(coord_esfera[0] < coord_barra_x or coord_esfera[0] > (coord_barra_x + ANCHO_BARRA)):
+                        EN_JUEGO = False
+                    if(coord_esfera[0] < (coord_barra_x + ANCHO_BARRA/6)):
+                        angulo -= 20*DEG2RAD  
+                    if(coord_esfera[0] < (coord_barra_x + ANCHO_BARRA*2/6)):
+                        angulo -= 10*DEG2RAD 
+                    if(coord_esfera[0] < (coord_barra_x + ANCHO_BARRA*4/6)):
+                        angulo += 10*DEG2RAD 
+                    if(coord_esfera[0] > coord_barra_x + ANCHO_BARRA*5/6):
+                        angulo += 20*DEG2RAD      
+                    if(angulo < 90*DEG2RAD):
+                        angulo += 270*DEG2RAD
+                    else:
+                        angulo += 90*DEG2RAD
+                pared = 4
+                print("Angulo piso: "+str(angulo*RAD2DEG))   
+
+            time.sleep(0.04)
+
+def tarea_barra():
+    global coord_barra_x
+    global coord_esfera
+    global EN_JUEGO
+    coord_barra_x = (SCREEN_SIZE_X - ANCHO_BARRA)/2
+    while True:
+        tecla = pg.key.get_pressed()
+        if tecla[pg.K_LEFT]:
+            coord_barra_x -= 10
+            time.sleep(0.01)
+        if tecla[pg.K_RIGHT]:
+            coord_barra_x += 10  
+            time.sleep(0.01)
+        if(coord_barra_x < 0):
+            coord_barra_x = 0
+        if(coord_barra_x > SCREEN_SIZE_X - ANCHO_BARRA):
+            coord_barra_x = SCREEN_SIZE_X - ANCHO_BARRA  
+
+#********************************************************************************************
+#                                   EJECUCIÓN
+#********************************************************************************************
+
+pg.init() #inicia libreria pygame
+screen =  pg.display.set_mode((SCREEN_SIZE_X,SCREEN_SIZE_Y))
+screen.fill((255,255,255))
+pg.display.update()
+
+task_barra = threading.Thread(target=tarea_barra)
+task_esfera = threading.Thread(target=tarea_esfera)
+task_barra.daemon = True
+task_esfera.daemon = True
+task_barra.start()
+task_esfera.start()
+
+
+
+Terminado = False
+while not Terminado:
+    for event in pg.event.get():
+        if event.type == pg.QUIT:
+            Terminado = True  
+        if event.type == pg.KEYDOWN:
+            if event.key == pg.K_SPACE:
+                EN_JUEGO = True
+    screen.fill((255,255,255))
+    ladrillos()
+    barra(coord_barra_x)    
+    esfera(coord_esfera[0], coord_esfera[1])          
+    pg.display.update()  
