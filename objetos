@@ -1,0 +1,38 @@
+class Objetos():
+    def __init__(self): 
+        self.nivel = 1
+        self.ANCHO_BLOQUE = 50
+        self.__bloques = []
+        self.__colores= [
+            (0,0,0),
+            (150,150,150),
+            (50,120,255),
+            (50,255,255),
+            (170,50,255),
+            (50,255,130),
+            (255,255,50),
+            (255,100,50)
+        ]
+        
+    def generarBloques(self, lvl):
+        self.nivel = lvl
+        blocks = []
+        cond = True
+        for niv in range (3):
+            if niv < lvl:
+                cond = True
+            else:
+                cond = False
+            for blk in range (8):
+                blocks.append([[(50*(blk+1)),(100*(niv+1)),self.ANCHO_BLOQUE,20], cond])
+        self.__bloques = blocks
+        return self.__bloques
+
+    def bloques(self):
+        return self.__bloques
+    
+    def getAnchoBloque(self):
+        return self.ANCHO_BLOQUE
+
+    def getColores(self,col):
+        return self.__colores[col]
