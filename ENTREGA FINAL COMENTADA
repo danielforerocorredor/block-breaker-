@@ -1,0 +1,262 @@
+import pygame as pg
+import time
+import random as ran 
+import threading
+import math
+import objetos as objs
+#********************************************************************************************
+#                              VARIABLES GLOBALES E INICIALIZACIONES
+#********************************************************************************************
+DEG2RAD = math.pi/180  #pasar de grados a radianes 
+RAD2DEG = 180/math.pi   #pasar de radianes a grados 
+
+SCREEN_SIZE_X = 500         #ancho de la ventana 
+SCREEN_SIZE_Y = 700         #alto de la ventana 
+ANCHO_BARRA = 100
+RADIO_ESFERA = 15
+EN_JUEGO = False        #
+NIVEL_JUEGO = 1
+VIDAS = 5
+SIN_BLOQUES = False
+coord_barra_x = 0
+coord_esfera = [0,0,0]      #coordenada inicial de la esfera al inicio del juego 
+bloques = []        #lista para la creacio de los bloques 
+
+pg.init() #inicia libreria pygame
+screen =  pg.display.set_mode((SCREEN_SIZE_X,SCREEN_SIZE_Y)) #creacion de la ventana del juego 
+screen.fill((255,255,255))
+bigfont = pg.font.SysFont('arial', 30)      #formato y tamaño letra de mensajes que aparecen en la pantalla 
+smallfont = pg.font.SysFont('arial', 15) #formato y tamaño letra de mensajes que aparecen en la pantalla 
+pg.display.update()
+
+objetos = objs.Objetos()
+bloques = objetos.generarBloques(NIVEL_JUEGO)
+
+#********************************************************************************************
+#                                        FUNCIONES 
+#********************************************************************************************
+
+def barra(x = 0):
+    pg.draw.rect(screen,(0,0,0),[x,SCREEN_SIZE_Y-10,ANCHO_BARRA,10])  #creacion de la barra inferior 
+
+def esfera(x,y):
+    pg.draw.circle(screen, (0,0,0), (int(x),int(y)), RADIO_ESFERA)  #creacion de la esfera 
+    
+def centrar_esfera():           #funcion que permite que la esfera al iniciar el juego su posicion sea el centro de la pantalla 
+    global coord_barra_x
+    global coord_esfera
+    coord_esfera[0] = int(SCREEN_SIZE_X/2)
+    coord_esfera[1] = SCREEN_SIZE_Y-10-RADIO_ESFERA
+    coord_esfera[2] = (270+ran.randint(-40,40))
+    coord_barra_x = (SCREEN_SIZE_X - ANCHO_BARRA)/2
+  
+def ladrillos():            #funcion que funciona para la creacion de los ladrillos que se van a destruir 
+    global bloques
+    global SIN_BLOQUES
+    win = True
+    for i in range(8*(NIVEL_JUEGO)):
+        if(bloques[i][1]):
+            win = False
+            pg.draw.rect(screen, objetos.getColores(i%8), bloques[i][0])
+    SIN_BLOQUES = win
+
+def puntuacion():               #permite mediante las vidas saber cuando el programa ha llegado a su fi
+    global EN_JUEGO
+    global NIVEL_JUEGO
+    global SIN_BLOQUES
+    global ANCHO_BARRA
+    global bloques
+
+    pts_msg = smallfont.render('Vidas: '+str(VIDAS), False, (0, 0, 0)) 
+    screen.blit(pts_msg,(10,10))
+
+    if(VIDAS <= 0):                                                     #si las vidas llegan a 0, el jugo dara un menaje y se detendra el programa 
+        lose_msg = bigfont.render('Has perdido :(', False, (0, 0, 0))
+        screen.blit(lose_msg,(180,400))
+        EN_JUEGO = False
+
+    if(SIN_BLOQUES):                    #una vez todos los bloques del nivel son destruidos, se procede a crear uno nuevo 
+        if(NIVEL_JUEGO < 3):
+            NIVEL_JUEGO += 1
+            ANCHO_BARRA -= 20
+            print ("Nuevo nivel: "+ str(NIVEL_JUEGO))
+            centrar_esfera()
+            bloques = objetos.generarBloques(NIVEL_JUEGO)
+        else:
+            win_msg = bigfont.render('Has ganado!', False, (0, 0, 0))
+            screen.blit(win_msg,(180,400))
+            EN_JUEGO = False
+
+def reiniciar():
+    global EN_JUEGO
+    global VIDAS
+    global NIVEL_JUEGO
+    global bloques
+    centrar_esfera()
+    EN_JUEGO = False
+    VIDAS = 5
+    NIVEL_JUEGO = 1
+    bloques = objetos.generarBloques(NIVEL_JUEGO)
+
+def tarea_esfera():  # esta funcion es la que permite el reconocimiento de los bloques, las paredes y la barra a la esfera, asi logrando un rebote y/o la destruccion de uno de los ladrillos 
+    global EN_JUEGO
+    global VIDAS
+    global coord_esfera
+    global coord_barra_x
+    global bloques
+    centrar_esfera()
+    print("Angulo: "+str(coord_esfera[2]))
+    pared = 4
+    colision = False
+    while True:
+        if EN_JUEGO: 
+            x_factor = math.cos(coord_esfera[2]*DEG2RAD)
+            y_factor = math.sin(coord_esfera[2]*DEG2RAD)
+            coord_esfera[0] += ((2+(3*NIVEL_JUEGO))*x_factor)
+            coord_esfera[1] += ((2+(3*NIVEL_JUEGO))*y_factor)
+
+            for niv in range(NIVEL_JUEGO):
+                if(coord_esfera[1] > (100*(niv+1)) and coord_esfera[1] <= (100*(niv+1)+20) +RADIO_ESFERA):
+                    for i in range(8):
+                        if(bloques[i+(niv*8)][1]):
+                            if (coord_esfera[0] > bloques[i+(niv*8)][0][0]-RADIO_ESFERA and coord_esfera[0] < bloques[i+(niv*8)][0][0]+objetos.getAnchoBloque()+RADIO_ESFERA):
+                                if (pared != 5+niv):
+                                    if(x_factor > 0):
+                                        coord_esfera[2] = math.asin(-y_factor)*RAD2DEG
+                                    elif(x_factor<0):
+                                        coord_esfera[2] = 180 - math.asin(-y_factor)*RAD2DEG
+                                    else:
+                                        coord_esfera[2] = 90
+                                    bloques[i+(niv*8)][1]=False
+                                    pg.mixer.music.load('explosion.mp3')
+                                    pg.mixer.music.play(0)
+                                    print("Angulo bloque: "+str(coord_esfera[2]))     
+                                pared = 5+niv
+
+            if (coord_esfera[0] <= RADIO_ESFERA):
+                if(pared != 1):
+                    if(y_factor > 0): #La esfera baja
+                        coord_esfera[2] = math.acos(-x_factor)*RAD2DEG
+                    elif(y_factor<0): #La esfera sube
+                        coord_esfera[2] = 360-math.acos(-x_factor)*RAD2DEG
+                    else:
+                        coord_esfera[2] = 0
+                    print("Angulo izquierda: "+str(coord_esfera[2]))
+                    colision = True
+                pared = 1
+
+            if (coord_esfera[0] >= SCREEN_SIZE_X-RADIO_ESFERA):
+                if(pared != 2):
+                    if(y_factor > 0): #La esfera baja
+                        coord_esfera[2] = math.acos(-x_factor)*RAD2DEG
+                    elif(y_factor<0): #La esfera sube
+                        coord_esfera[2] = 360-math.acos(-x_factor)*RAD2DEG
+                    else:
+                        coord_esfera[2] = 180
+                    print("Angulo derecha: "+str(coord_esfera[2]))
+                    colision = True  
+                pared = 2
+            if (coord_esfera[1] <= RADIO_ESFERA):
+                if (pared != 3):
+                    if(x_factor > 0):
+                        coord_esfera[2] = math.asin(-y_factor)*RAD2DEG
+                    elif(x_factor<0):
+                        coord_esfera[2] = 180 - math.asin(-y_factor)*RAD2DEG
+                    else:
+                        coord_esfera[2] = 90
+                    print("Angulo techo: "+str(coord_esfera[2]))  
+                    colision = True  
+                pared = 3
+
+            if (coord_esfera[1] >= SCREEN_SIZE_Y-10-RADIO_ESFERA):
+                if(pared != 4):
+                    tecla = pg.key.get_pressed()
+                    if(coord_esfera[0] < coord_barra_x or coord_esfera[0] > (coord_barra_x + ANCHO_BARRA)):
+                        centrar_esfera()
+                        VIDAS -= 1
+                        EN_JUEGO = False
+                    print("Angulo antes de barra: "+str(coord_esfera[2])) 
+                    multiplicador = 1     
+                    if(coord_esfera[0] < (coord_barra_x + ANCHO_BARRA/6)):
+                        multiplicador += 4  
+                    if(coord_esfera[0] < (coord_barra_x + ANCHO_BARRA*2/6)):
+                        multiplicador += 2
+                    if(coord_esfera[0] < (coord_barra_x + ANCHO_BARRA*4/6)):
+                        multiplicador -= 2
+                    if(coord_esfera[0] > coord_barra_x + ANCHO_BARRA*5/6):
+                        multiplicador -= 4        
+                    
+                    if tecla[pg.K_LEFT]:
+                        coord_esfera[2] -= multiplicador*20
+                    if tecla[pg.K_RIGHT]:
+                        coord_esfera[2] += multiplicador*20
+
+                    print("Angulo despues de barra: "+str(coord_esfera[2]))      
+
+                    if(x_factor > 0):
+                        coord_esfera[2] = math.asin(-y_factor)*RAD2DEG
+                    elif(x_factor<0):
+                        coord_esfera[2] = 180 - math.asin(-y_factor)*RAD2DEG
+                    else:
+                        coord_esfera[2] = 270
+                    print("Angulo piso: "+str(coord_esfera[2]))   
+                    colision = True  
+                pared = 4
+                    
+
+            if(coord_esfera[0]<0 or coord_esfera[0]>SCREEN_SIZE_X or coord_esfera[1]<0 or coord_esfera[1]>SCREEN_SIZE_Y):
+                    centrar_esfera()
+                    EN_JUEGO = False
+            
+            if colision:                                    
+                    pg.mixer.music.load('metal_hit.wav')
+                    pg.mixer.music.play(0)
+                    colision = False
+            time.sleep(0.01)
+
+def tarea_barra():              #funcion que permite el movimiento de la barra inferior
+    global coord_barra_x
+    global coord_esfera
+    global EN_JUEGO
+    coord_barra_x = (SCREEN_SIZE_X - ANCHO_BARRA)/2
+    while True:
+        tecla = pg.key.get_pressed()
+        if tecla[pg.K_LEFT]:
+            coord_barra_x -= 10
+            time.sleep(0.01)
+        if tecla[pg.K_RIGHT]:
+            coord_barra_x += 10  
+            time.sleep(0.01)
+        if(coord_barra_x < 0):
+            coord_barra_x = 0
+        if(coord_barra_x > SCREEN_SIZE_X - ANCHO_BARRA):
+            coord_barra_x = SCREEN_SIZE_X - ANCHO_BARRA  
+
+#********************************************************************************************
+#                                   EJECUCIÓN DE TAREAS
+#********************************************************************************************
+task_barra = threading.Thread(target=tarea_barra) #los hilos(threading) en este programa sirven para que el mismo ejecute varias
+task_esfera = threading.Thread(target=tarea_esfera)#tareas en simultaneo sin tener que estar todas dentro de la misma funcion, esto para que el programa sea mas fluido y todos los sucesos del teclado se lleven a cabo sin interferencia entre ellos 
+task_barra.daemon = True     #daemon es funciona para la ejecucion de funciones en segundo plano 
+task_esfera.daemon = True
+task_barra.start()
+task_esfera.start()
+
+Terminado = False
+while not Terminado:                    #mientras el juego no haya terminado se seguiran recibiendo todas las funciones previamente creadas
+    for event in pg.event.get():
+        if event.type == pg.QUIT:
+            Terminado = True  
+        if event.type == pg.KEYDOWN:
+            if event.key == pg.K_SPACE:
+                EN_JUEGO = True
+            if event.key == pg.K_ESCAPE:
+                Terminado = True
+            if event.key == pg.K_DELETE:
+                reiniciar()    
+    screen.fill((255,255,255))
+    ladrillos()
+    barra(coord_barra_x)    
+    esfera(coord_esfera[0], coord_esfera[1])
+    puntuacion()          
+    pg.display.update()  
